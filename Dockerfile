@@ -1,25 +1,27 @@
-FROM node:20-alpine AS build
+# Build Stage
+FROM node:20 AS build
 WORKDIR /app
 
-# Copy package files
+# Copy package.json and install dependencies
+# We use npm install instead of npm ci to handle potential lockfile mismatches between environments
 COPY frontend/package.json ./
-
-# Install dependencies fresh (generates correct native bindings for Linux)
 RUN npm install
 
-# Copy source code
-COPY frontend/index.html ./
-COPY frontend/vite.config.ts ./
-COPY frontend/tsconfig.json ./
-COPY frontend/tsconfig.node.json ./
-COPY frontend/src/ ./src/
+# Copy all source files
+# Copying the entire frontend directory ensures all necessary configs (tailwind, tsconfig, etc.) are present
+COPY frontend/ ./
 
-# Build
+# Run the build
 RUN npm run build
 
-# Serve with nginx
-FROM nginx:alpine
+# Production Stage
+FROM nginx:stable-alpine
+# Copy the built assets to nginx
 COPY --from=build /app/dist /usr/share/nginx/html
+# Copy the custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Cloud Run expects the service to listen on the port defined by the PORT env var (default 8080)
 EXPOSE 8080
+
 CMD ["nginx", "-g", "daemon off;"]

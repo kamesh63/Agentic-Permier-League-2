@@ -1,24 +1,23 @@
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 WORKDIR /app
 
-# Copy package files first for better caching
-COPY frontend/package.json frontend/package-lock.json ./
+# Copy package files
+COPY frontend/package.json ./
 
-# Install dependencies
-RUN npm ci --legacy-peer-deps
+# Install dependencies fresh (generates correct native bindings for Linux)
+RUN npm install
 
 # Copy source code
 COPY frontend/index.html ./
 COPY frontend/vite.config.ts ./
 COPY frontend/tsconfig.json ./
 COPY frontend/tsconfig.node.json ./
-COPY frontend/postcss.config.js ./
 COPY frontend/src/ ./src/
 
-# Build the app
+# Build
 RUN npm run build
 
-# Production stage - serve with nginx
+# Serve with nginx
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
